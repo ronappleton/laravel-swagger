@@ -6,6 +6,7 @@ namespace Mtrajano\LaravelSwagger;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
+use Illuminate\Support\Arr;
 use phpDocumentor\Reflection\DocBlockFactory;
 use ReflectionException;
 use ReflectionMethod;
@@ -39,7 +40,7 @@ class Generator
     /**
      * @var null
      */
-    protected $routeFilter;
+    protected $routeFilters;
 
     /**
      * @var
@@ -69,12 +70,12 @@ class Generator
     /**
      * Generator constructor.
      * @param $config
-     * @param null $routeFilter
+     * @param array|string|null $routeFilters
      */
-    public function __construct($config, $routeFilter = null)
+    public function __construct($config, $routeFilters = null)
     {
         $this->config = $config;
-        $this->routeFilter = $routeFilter;
+        $this->routeFilters = (array)$routeFilters;
         $this->docParser = DocBlockFactory::createInstance();
         $this->hasSecurityDefinitions = false;
     }
@@ -82,6 +83,7 @@ class Generator
     /**
      * @return array
      * @throws LaravelSwaggerException
+     * @throws ReflectionException
      */
     public function generate(): array
     {
@@ -95,7 +97,12 @@ class Generator
         foreach ($this->getAppRoutes() as $route) {
             $this->route = $route;
 
-            if ($this->routeFilter && $this->isFilteredRoute()) {
+            if (
+                (
+                    $this->routeFilters && $this->isFilteredRoute()
+                ) ||
+                $this->isFilteredAction()
+            ) {
                 continue;
             }
 
@@ -198,16 +205,11 @@ class Generator
     }
 
     /**
-     *
+     * @throws ReflectionException
      */
     protected function generatePath(): void
     {
-        $actionInstance = $this->getActionClassInstance();
-
-        $docBlock = '';
-        if ($actionInstance !== null) {
-            $docBlock = $actionInstance->getDocComment();
-        }
+        $docBlock = $this->getDocBlock();
 
         [$isDeprecated, $summary, $description] = $this->parseActionDocBlock($docBlock);
 
@@ -227,6 +229,24 @@ class Generator
         if ($this->hasSecurityDefinitions) {
             $this->addActionScopes();
         }
+    }
+
+    /**
+     * @return false|string
+     * @throws ReflectionException
+     */
+    protected function getDocBlock(): string
+    {
+        $docBlock = '';
+
+        if (($actionInstance = $this->getActionClassInstance()) !== null) {
+            $docBlock = $actionInstance->getDocComment();
+            if (!is_string($docBlock)) {
+                $docBlock = '';
+            }
+        }
+
+        return $docBlock;
     }
 
     /**
@@ -354,7 +374,13 @@ class Generator
      */
     private function isFilteredRoute(): bool
     {
-        return !preg_match('/^' . preg_quote($this->routeFilter, '/') . '/', $this->route->uri());
+        foreach ($this->routeFilters as $routeFilter) {
+            if (preg_match('/^' . preg_quote($routeFilter, '/') . '/', $this->route->uri())) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -428,5 +454,24 @@ class Generator
         $middlewareMap = app('router')->getMiddleware();
 
         return $middlewareMap[$middleware] ?? null;
+    }
+
+    private function isFilteredAction()
+    {
+        $action = explode('\\', $this->route->action());
+        [$controller, $method] = explode('@', end($action));
+
+        if (in_array($controller, $this->config['controller_filters'], true)) {
+            return true;
+        }
+
+        if (
+            !empty($methods = $this->config['controller_method_filters'][$controller]) &&
+            in_array($method, $methods, true)
+        ) {
+            return true;
+        }
+
+        return false;
     }
 }
