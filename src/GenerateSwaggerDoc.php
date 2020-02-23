@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Mtrajano\LaravelSwagger;
 
 use Illuminate\Console\Command;
+use ReflectionException;
+use Storage;
 
 class GenerateSwaggerDoc extends Command
 {
@@ -11,9 +15,9 @@ class GenerateSwaggerDoc extends Command
      *
      * @var string
      */
-    protected $signature = 'laravel-swagger:generate
+    protected $signature = 'swagger:generate
                             {--format=json : The format of the output, current options are json and yaml}
-                            {--f|filter= : Filter to a specific route prefix, such as /api or /v2/api}
+                            {--f|filters=* : Filter to a specific route prefix, such as /api or /v2/api}
                             {--o|output= : Output file to write the contents to, defaults to stdout}';
 
     /**
@@ -24,26 +28,70 @@ class GenerateSwaggerDoc extends Command
     protected $description = 'Automatically generates a swagger documentation file for this application';
 
     /**
+     * @var array
+     */
+    protected array $config;
+
+    /**
      * Execute the console command.
      *
      * @return mixed
+     * @throws LaravelSwaggerException
+     * @throws ReflectionException
      */
     public function handle()
     {
-        $config = config('laravel-swagger');
-        $filter = $this->option('filter') ?: null;
-        $file = $this->option('output') ?: null;
+        $this->config = config('laravel-swagger');
+        $filters = $this->getFilters();
+        $file = $this->getOutputFile();
 
-        $docs = (new Generator($config, $filter))->generate();
+        $docs = (new Generator($this->config, $filters))->generate();
 
         $formattedDocs = (new FormatterManager($docs))
             ->setFormat($this->option('format'))
             ->format();
 
         if ($file) {
-            file_put_contents($file, $formattedDocs);
+            $this->info('Writing generated data to file');
+            Storage::disk($this->config['disk'])->put($file, $formattedDocs);
         } else {
             $this->line($formattedDocs);
         }
+    }
+
+    /**
+     * @return array
+     */
+    protected function getFilters(): array
+    {
+        $filters = $this->option('filters');
+
+        if (empty($filters)) {
+            $filters = $this->config['filters'];
+        }
+
+        return (array)$filters;
+    }
+
+    /**
+     * @return string
+     */
+    protected function getOutputFile(): ?string
+    {
+        $file = $this->option('output');
+
+        if (($file === null) && $this->config['output'] === 'file') {
+            $path = $this->config['path'];
+            if (!Storage::disk($this->config['disk'])->exists($path)) {
+                $this->info('Configured path [' . $path . '] does not exists, creating now.');
+                Storage::disk($this->config['disk'])->makeDirectory($path)
+                    ? $this->info('The path was created successfully')
+                    : $this->info('The path could not be created.');
+            }
+
+            $file = implode(DIRECTORY_SEPARATOR, [$path, $this->config['fileName'] . '.' . $this->config['fileType']]);
+        }
+
+        return $file;
     }
 }
