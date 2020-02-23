@@ -95,6 +95,7 @@ class Generator
 
     protected function getAppRoutes()
     {
+        dd(app('router')->getRoutes()->getRoutes());
         return array_map(function ($route) {
             return new DataObjects\Route($route);
         }, app('router')->getRoutes()->getRoutes());

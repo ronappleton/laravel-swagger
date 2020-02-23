@@ -12,28 +12,28 @@ return [
     |
     */
 
-    'title' => env('APP_NAME'),
+  'title' => env('APP_NAME', 'Laravel'),
 
-    'description' => '',
+  'description' => env('APP_DESCRIPTION', ''),
 
-    'appVersion' => '1.0.0',
+  'appVersion' => env('APP_VERSION', '1.0.0'),
 
-    'host' => env('APP_URL'),
+  'host' => env('APP_URL', 'localhost'),
 
-    'basePath' => '/',
+  'basePath' => '/',
 
-    'schemes' => [
-        // 'http',
-        // 'https',
-    ],
+  'schemes' => [
+    'http',
+      // 'https',
+  ],
 
-    'consumes' => [
-        // 'application/json',
-    ],
+  'consumes' => [
+      // 'application/json',
+  ],
 
-    'produces' => [
-        // 'application/json',
-    ],
+  'produces' => [
+      // 'application/json',
+  ],
 
     /*
     |--------------------------------------------------------------------------
@@ -44,9 +44,9 @@ return [
     |
     */
 
-    'ignoredMethods' => [
-        'head',
-    ],
+  'ignoredMethods' => [
+    'head',
+  ],
 
     /*
     |--------------------------------------------------------------------------
@@ -61,7 +61,7 @@ return [
     |
     */
 
-    'parseDocBlock' => true,
+  'parseDocBlock' => true,
 
     /*
     |--------------------------------------------------------------------------
@@ -79,7 +79,27 @@ return [
     |
     */
 
-    'parseSecurity' => true,
+  'parseSecurity' => true,
 
-    'authFlow' => 'accessCode',
+  'authFlow' => 'accessCode',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Output options
+    |--------------------------------------------------------------------------
+    |
+    | Here you can alter the output of the generator.
+    | You can output to 'file' or 'console'.
+    | You can choose the file type 'json' or 'yaml'.
+    | You can set the output path, /public/swagger by default.
+    |
+    */
+
+  'output' => 'console', // || file
+
+  'fileType' => 'json', // || yaml
+
+  'paths' => public_path('swagger'),
+
+
 ];
