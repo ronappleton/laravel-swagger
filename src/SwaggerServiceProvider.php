@@ -11,7 +11,7 @@ class SwaggerServiceProvider extends ServiceProvider
      *
      * @return void
      */
-    public function boot()
+    public function boot(): void
     {
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -28,5 +28,15 @@ class SwaggerServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(
             $source, 'laravel-swagger'
         );
+
+        $this->registerSwaggerDisk();
+    }
+
+    protected function registerSwaggerDisk(): void
+    {
+        app()->config['filesystems.disks.swagger'] = [
+            'driver' => 'local',
+            'root' => '/',
+        ];
     }
 }
