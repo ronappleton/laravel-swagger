@@ -12,41 +12,41 @@ return [
     |
     */
 
-  'title' => env('APP_NAME', 'Laravel'),
+    'title' => env('APP_NAME', 'Laravel'),
 
-  'description' => env('APP_DESCRIPTION', ''),
+    'description' => env('APP_DESCRIPTION', ''),
 
-  'appVersion' => env('APP_VERSION', '1.0.0'),
+    'appVersion' => env('APP_VERSION', '1.0.0'),
 
-  'host' => env('APP_URL', 'localhost'),
+    'host' => env('APP_URL', 'localhost'),
 
-  'basePath' => '/',
+    'basePath' => '/',
 
-  'schemes' => [
-    'http',
-      // 'https',
-  ],
+    'schemes' => [
+        'http',
+        // 'https',
+    ],
 
-  'consumes' => [
-      // 'application/json',
-  ],
+    'consumes' => [
+        // 'application/json',
+    ],
 
-  'produces' => [
-      // 'application/json',
-  ],
+    'produces' => [
+        // 'application/json',
+    ],
 
     /*
     |--------------------------------------------------------------------------
-    | Ignore methods
+    | Ignore request methods
     |--------------------------------------------------------------------------
     |
-    | Methods in the following array will be ignored in the paths array
+    | Request methods in the following array will be ignored in the paths array
     |
     */
 
-  'ignoredMethods' => [
-    'head',
-  ],
+    'ignoredMethods' => [
+        'head',
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -61,7 +61,7 @@ return [
     |
     */
 
-  'parseDocBlock' => true,
+    'parseDocBlock' => true,
 
     /*
     |--------------------------------------------------------------------------
@@ -79,9 +79,9 @@ return [
     |
     */
 
-  'parseSecurity' => true,
+    'parseSecurity' => true,
 
-  'authFlow' => 'accessCode',
+    'authFlow' => 'accessCode',
 
     /*
     |--------------------------------------------------------------------------
@@ -92,14 +92,40 @@ return [
     | You can output to 'file' or 'console'.
     | You can choose the file type 'json' or 'yaml'.
     | You can set the output path, /public/swagger by default.
+    | You can set the disk used for storage using 'disk', by default it is
+    | configured to use this packages disk for the public folder (storage).
     |
+    | If the output option is used on the command line, it will override these
+    | settings.
     */
 
-  'output' => 'console', // || file
+    'output' => 'console', // || file
 
-  'fileType' => 'json', // || yaml
+    'fileType' => 'json', // || yaml
 
-  'paths' => public_path('swagger'),
+    'path' => public_path('swagger'),
 
+    'fileName' => 'swagger',
 
+    'disk' => 'swagger',
+    /*
+    |--------------------------------------------------------------------------
+    | Filter options
+    |--------------------------------------------------------------------------
+    |
+    | Here you can add filters to control the generation of the swagger data.
+    | These filters can be used in place of the generator filter option.
+    |
+    | If a filter is given on the command line, it will override this array.
+    */
+
+    'filters' => [
+        '/api/'
+    ],
+
+    'controller_filters' => [
+    ],
+
+    'controller_method_filters' => [
+    ],
 ];
