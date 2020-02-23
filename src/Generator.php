@@ -1,26 +1,76 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Mtrajano\LaravelSwagger;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use phpDocumentor\Reflection\DocBlockFactory;
+use ReflectionException;
 use ReflectionMethod;
 
+/**
+ * Class Generator
+ * @package Mtrajano\LaravelSwagger
+ */
 class Generator
 {
-    const SECURITY_DEFINITION_NAME = 'OAuth2';
-    const OAUTH_TOKEN_PATH = '/oauth/token';
-    const OAUTH_AUTHORIZE_PATH = '/oauth/authorize';
+    /**
+     * @var string
+     */
+    public const SECURITY_DEFINITION_NAME = 'OAuth2';
 
+    /**
+     * @var string
+     */
+    public const OAUTH_TOKEN_PATH = '/oauth/token';
+
+    /**
+     * @var string
+     */
+    public const OAUTH_AUTHORIZE_PATH = '/oauth/authorize';
+
+    /**
+     * @var
+     */
     protected $config;
+
+    /**
+     * @var null
+     */
     protected $routeFilter;
+
+    /**
+     * @var
+     */
     protected $docs;
+
+    /**
+     * @var
+     */
     protected $route;
+
+    /**
+     * @var
+     */
     protected $method;
+
+    /**
+     * @var
+     */
     protected $docParser;
+
+    /**
+     * @var bool
+     */
     protected $hasSecurityDefinitions;
 
+    /**
+     * Generator constructor.
+     * @param $config
+     * @param null $routeFilter
+     */
     public function __construct($config, $routeFilter = null)
     {
         $this->config = $config;
@@ -29,7 +79,11 @@ class Generator
         $this->hasSecurityDefinitions = false;
     }
 
-    public function generate()
+    /**
+     * @return array
+     * @throws LaravelSwaggerException
+     */
+    public function generate(): array
     {
         $this->docs = $this->getBaseInfo();
 
@@ -52,7 +106,7 @@ class Generator
             foreach ($route->methods() as $method) {
                 $this->method = $method;
 
-                if (in_array($this->method, $this->config['ignoredMethods'])) {
+                if (in_array($this->method, $this->config['ignoredMethods'], true)) {
                     continue;
                 }
 
@@ -63,7 +117,10 @@ class Generator
         return $this->docs;
     }
 
-    protected function getBaseInfo()
+    /**
+     * @return array
+     */
+    protected function getBaseInfo(): array
     {
         $baseInfo = [
             'swagger' => '2.0',
@@ -93,15 +150,24 @@ class Generator
         return $baseInfo;
     }
 
-    protected function getAppRoutes()
+    /**
+     * @return array
+     */
+    protected function getAppRoutes(): array
     {
-        dd(app('router')->getRoutes()->getRoutes());
-        return array_map(function ($route) {
-            return new DataObjects\Route($route);
-        }, app('router')->getRoutes()->getRoutes());
+        return array_map(
+            static function ($route) {
+                return new DataObjects\Route($route);
+            },
+            app('router')->getRoutes()->getRoutes()
+        );
     }
 
-    protected function generateSecurityDefinitions()
+    /**
+     * @return array
+     * @throws LaravelSwaggerException
+     */
+    protected function generateSecurityDefinitions(): array
     {
         $authFlow = $this->config['authFlow'];
 
@@ -115,11 +181,15 @@ class Generator
         ];
 
         if (in_array($authFlow, ['implicit', 'accessCode'])) {
-            $securityDefinition[self::SECURITY_DEFINITION_NAME]['authorizationUrl'] = $this->getEndpoint(self::OAUTH_AUTHORIZE_PATH);
+            $securityDefinition[self::SECURITY_DEFINITION_NAME]['authorizationUrl'] = $this->getEndpoint(
+                self::OAUTH_AUTHORIZE_PATH
+            );
         }
 
         if (in_array($authFlow, ['password', 'application', 'accessCode'])) {
-            $securityDefinition[self::SECURITY_DEFINITION_NAME]['tokenUrl'] = $this->getEndpoint(self::OAUTH_TOKEN_PATH);
+            $securityDefinition[self::SECURITY_DEFINITION_NAME]['tokenUrl'] = $this->getEndpoint(
+                self::OAUTH_TOKEN_PATH
+            );
         }
 
         $securityDefinition[self::SECURITY_DEFINITION_NAME]['scopes'] = $this->generateOauthScopes();
@@ -127,10 +197,17 @@ class Generator
         return $securityDefinition;
     }
 
-    protected function generatePath()
+    /**
+     *
+     */
+    protected function generatePath(): void
     {
         $actionInstance = $this->getActionClassInstance();
-        $docBlock = $actionInstance ? ($actionInstance->getDocComment() ?: '') : '';
+
+        $docBlock = '';
+        if ($actionInstance !== null) {
+            $docBlock = $actionInstance->getDocComment();
+        }
 
         [$isDeprecated, $summary, $description] = $this->parseActionDocBlock($docBlock);
 
@@ -152,7 +229,10 @@ class Generator
         }
     }
 
-    protected function addActionParameters()
+    /**
+     *
+     */
+    protected function addActionParameters(): void
     {
         $rules = $this->getFormRules() ?: [];
 
@@ -169,7 +249,10 @@ class Generator
         }
     }
 
-    protected function addActionScopes()
+    /**
+     *
+     */
+    protected function addActionScopes(): void
     {
         foreach ($this->route->middleware() as $middleware) {
             if ($this->isPassportScopeMiddleware($middleware)) {
@@ -180,6 +263,10 @@ class Generator
         }
     }
 
+    /**
+     * @return array
+     * @throws ReflectionException
+     */
     protected function getFormRules(): array
     {
         $action_instance = $this->getActionClassInstance();
@@ -200,13 +287,17 @@ class Generator
             $class_name = $class->getName();
 
             if (is_subclass_of($class_name, FormRequest::class)) {
-                return (new $class_name)->rules();
+                return (new $class_name())->rules();
             }
         }
 
         return [];
     }
 
+    /**
+     * @param $rules
+     * @return Parameters\BodyParameterGenerator|Parameters\QueryParameterGenerator
+     */
     protected function getParameterGenerator($rules)
     {
         switch ($this->method) {
@@ -219,6 +310,10 @@ class Generator
         }
     }
 
+    /**
+     * @return ReflectionMethod|null
+     * @throws ReflectionException
+     */
     private function getActionClassInstance(): ?ReflectionMethod
     {
         [$class, $method] = Str::parseCallback($this->route->action());
@@ -230,7 +325,11 @@ class Generator
         return new ReflectionMethod($class, $method);
     }
 
-    private function parseActionDocBlock(string $docBlock)
+    /**
+     * @param string $docBlock
+     * @return array|null
+     */
+    private function parseActionDocBlock(string $docBlock): ?array
     {
         if (empty($docBlock) || !$this->config['parseDocBlock']) {
             return [false, '', ''];
@@ -242,7 +341,7 @@ class Generator
             $isDeprecated = $parsedComment->hasTag('deprecated');
 
             $summary = $parsedComment->getSummary();
-            $description = (string) $parsedComment->getDescription();
+            $description = (string)$parsedComment->getDescription();
 
             return [$isDeprecated, $summary, $description];
         } catch (\Exception $e) {
@@ -250,7 +349,10 @@ class Generator
         }
     }
 
-    private function isFilteredRoute()
+    /**
+     * @return bool
+     */
+    private function isFilteredRoute(): bool
     {
         return !preg_match('/^' . preg_quote($this->routeFilter, '/') . '/', $this->route->uri());
     }
@@ -258,7 +360,7 @@ class Generator
     /**
      * Assumes routes have been created using Passport::routes().
      */
-    private function hasOauthRoutes()
+    private function hasOauthRoutes(): bool
     {
         foreach ($this->getAppRoutes() as $route) {
             $uri = $route->uri();
@@ -271,11 +373,18 @@ class Generator
         return false;
     }
 
-    private function getEndpoint(string $path)
+    /**
+     * @param string $path
+     * @return string
+     */
+    private function getEndpoint(string $path): string
     {
         return rtrim($this->config['host'], '/') . $path;
     }
 
+    /**
+     * @return array|false
+     */
     private function generateOauthScopes()
     {
         if (!class_exists('\Laravel\Passport\Passport')) {
@@ -287,21 +396,33 @@ class Generator
         return array_combine(array_column($scopes, 'id'), array_column($scopes, 'description'));
     }
 
-    private function validateAuthFlow(string $flow)
+    /**
+     * @param string $flow
+     * @throws LaravelSwaggerException
+     */
+    private function validateAuthFlow(string $flow): void
     {
         if (!in_array($flow, ['password', 'application', 'implicit', 'accessCode'])) {
             throw new LaravelSwaggerException('Invalid OAuth flow passed');
         }
     }
 
-    private function isPassportScopeMiddleware(DataObjects\Middleware $middleware)
+    /**
+     * @param DataObjects\Middleware $middleware
+     * @return bool
+     */
+    private function isPassportScopeMiddleware(DataObjects\Middleware $middleware): bool
     {
         $resolver = $this->getMiddlewareResolver($middleware->name());
 
         return $resolver === 'Laravel\Passport\Http\Middleware\CheckScopes' ||
-               $resolver === 'Laravel\Passport\Http\Middleware\CheckForAnyScope';
+            $resolver === 'Laravel\Passport\Http\Middleware\CheckForAnyScope';
     }
 
+    /**
+     * @param string $middleware
+     * @return mixed|null
+     */
     private function getMiddlewareResolver(string $middleware)
     {
         $middlewareMap = app('router')->getMiddleware();
