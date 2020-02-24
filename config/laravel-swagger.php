@@ -99,7 +99,7 @@ return [
     | settings.
     */
 
-    'output' => 'console', // || file
+    'output' => 'file', // || file
 
     'fileType' => 'json', // || yaml
 
@@ -128,4 +128,8 @@ return [
 
     'controller_method_filters' => [
     ],
+
+    'swagger_ui_dist_location' => 'https://github.com/swagger-api/swagger-ui/archive/master.zip',
+
+    'post_ui_generate' => true,
 ];

@@ -16,6 +16,7 @@ class SwaggerServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 GenerateSwaggerDoc::class,
+                Ui::class,
             ]);
         }
 
@@ -28,6 +29,8 @@ class SwaggerServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(
             $source, 'laravel-swagger'
         );
+
+        $this->loadRoutesFrom(__DIR__.'/routes.php');
 
         $this->registerSwaggerDisk();
     }

@@ -466,6 +466,7 @@ class Generator
         }
 
         if (
+            isset($this->config['controller_method_filters'][$controller]) &&
             !empty($methods = $this->config['controller_method_filters'][$controller]) &&
             in_array($method, $methods, true)
         ) {
