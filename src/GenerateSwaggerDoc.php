@@ -89,7 +89,7 @@ class GenerateSwaggerDoc extends Command
                     : $this->info('The path could not be created.');
             }
 
-            $file = implode(DIRECTORY_SEPARATOR, [$path, $this->config['fileName'] . '.' . $this->config['fileType']]);
+            $file = implode(DIRECTORY_SEPARATOR, [$path, $this->config['file_name'] . '.' . $this->config['file_type']]);
         }
 
         return $file;

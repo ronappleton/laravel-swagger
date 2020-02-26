@@ -7,6 +7,7 @@ namespace Mtrajano\LaravelSwagger;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
+use Mtrajano\LaravelSwagger\Filters\Filters;
 use phpDocumentor\Reflection\DocBlockFactory;
 use ReflectionException;
 use ReflectionMethod;
@@ -38,46 +39,26 @@ class Generator
     protected $config;
 
     /**
-     * @var null
-     */
-    protected $routeFilters;
-
-    /**
-     * @var
-     */
-    protected $docs;
-
-    /**
-     * @var
-     */
-    protected $route;
-
-    /**
-     * @var
-     */
-    protected $method;
-
-    /**
      * @var
      */
     protected $docParser;
 
     /**
-     * @var bool
+     * @var Filters
      */
-    protected $hasSecurityDefinitions;
+    protected $filters;
 
     /**
      * Generator constructor.
+     *
      * @param $config
      * @param array|string|null $routeFilters
      */
     public function __construct($config, $routeFilters = null)
     {
         $this->config = $config;
-        $this->routeFilters = (array)$routeFilters;
+        $this->filters = new Filters($config, $routeFilters);
         $this->docParser = DocBlockFactory::createInstance();
-        $this->hasSecurityDefinitions = false;
     }
 
     /**
@@ -87,42 +68,27 @@ class Generator
      */
     public function generate(): array
     {
-        $this->docs = $this->getBaseInfo();
+        $docs = $this->getBaseInfo();
+        $securityDefinitions = false;
 
-        if ($this->config['parseSecurity'] && $this->hasOauthRoutes()) {
-            $this->docs['securityDefinitions'] = $this->generateSecurityDefinitions();
-            $this->hasSecurityDefinitions = true;
+        if ($this->config['parse_security'] && $this->hasOauthRoutes()) {
+            $docs['securityDefinitions'] = $this->generateSecurityDefinitions();
+            $securityDefinitions = true;
         }
 
-        foreach ($this->getAppRoutes() as $route) {
-            $this->route = $route;
-
-            if (
-                (
-                    $this->routeFilters && $this->isFilteredRoute()
-                ) ||
-                $this->isFilteredAction()
-            ) {
-                continue;
+        foreach ($this->filters->unfilteredAppRoutes() as $route) {
+            if (!isset($docs['paths'][$route->uri()])) {
+                $docs['paths'][$route->uri()] = [];
             }
 
-            if (!isset($this->docs['paths'][$this->route->uri()])) {
-                $this->docs['paths'][$this->route->uri()] = [];
-            }
-
-            foreach ($route->methods() as $method) {
-                $this->method = $method;
-
-                if (in_array($this->method, $this->config['ignoredMethods'], true)) {
-                    continue;
-                }
-
-                $this->generatePath();
+            foreach ($this->filters->unfilteredRequestMethods() as $method) {
+                $docs = $this->generatePath($docs, $route, $method, $securityDefinitions);
             }
         }
 
-        return $this->docs;
+        return $docs;
     }
+
 
     /**
      * @return array
@@ -134,7 +100,7 @@ class Generator
             'info' => [
                 'title' => $this->config['title'],
                 'description' => $this->config['description'],
-                'version' => $this->config['appVersion'],
+                'version' => $this->config['app_version'],
             ],
             'host' => $this->config['host'],
             'basePath' => $this->config['basePath'],
@@ -159,24 +125,11 @@ class Generator
 
     /**
      * @return array
-     */
-    protected function getAppRoutes(): array
-    {
-        return array_map(
-            static function ($route) {
-                return new DataObjects\Route($route);
-            },
-            app('router')->getRoutes()->getRoutes()
-        );
-    }
-
-    /**
-     * @return array
      * @throws LaravelSwaggerException
      */
     protected function generateSecurityDefinitions(): array
     {
-        $authFlow = $this->config['authFlow'];
+        $authFlow = $this->config['auth_flow'];
 
         $this->validateAuthFlow($authFlow);
 
@@ -205,15 +158,20 @@ class Generator
     }
 
     /**
+     * @param $docs
+     * @param $route
+     * @param $method
+     * @param $security
+     * @return array
      * @throws ReflectionException
      */
-    protected function generatePath(): void
+    protected function generatePath($docs, $route, $method, $security): array
     {
-        $docBlock = $this->getDocBlock();
+        $docBlock = $this->getDocBlock($route);
 
         [$isDeprecated, $summary, $description] = $this->parseActionDocBlock($docBlock);
 
-        $this->docs['paths'][$this->route->uri()][$this->method] = [
+        $docs['paths'][$route->uri()][$method] = [
             'summary' => $summary,
             'description' => $description,
             'deprecated' => $isDeprecated,
@@ -224,22 +182,26 @@ class Generator
             ],
         ];
 
-        $this->addActionParameters();
+        $docs = $this->addActionParameters($docs, $route, $method);
 
-        if ($this->hasSecurityDefinitions) {
-            $this->addActionScopes();
+        if ($security) {
+            $docs = $this->addActionScopes($docs, $route, $method);
         }
+
+        return $docs;
     }
 
     /**
+     * @param $route
      * @return false|string
      * @throws ReflectionException
      */
-    protected function getDocBlock(): string
+    protected function getDocBlock($route): string
     {
         $docBlock = '';
 
-        if (($actionInstance = $this->getActionClassInstance()) !== null) {
+        $actionInstance = $this->getActionClassInstance($route);
+        if ($actionInstance !== null) {
             $docBlock = $actionInstance->getDocComment();
             if (!is_string($docBlock)) {
                 $docBlock = '';
@@ -250,37 +212,48 @@ class Generator
     }
 
     /**
-     *
+     * @param $docs
+     * @param $route
+     * @param $method
+     * @return array
+     * @throws ReflectionException
      */
-    protected function addActionParameters(): void
+    protected function addActionParameters($docs, $route, $method): array
     {
         $rules = $this->getFormRules() ?: [];
 
-        $parameters = (new Parameters\PathParameterGenerator($this->route->originalUri()))->getParameters();
+        $parameters = (new Parameters\PathParameterGenerator($route->originalUri()))->getParameters();
 
         if (!empty($rules)) {
-            $parameterGenerator = $this->getParameterGenerator($rules);
+            $parameterGenerator = $this->getParameterGenerator($method, $rules);
 
             $parameters = array_merge($parameters, $parameterGenerator->getParameters());
         }
 
         if (!empty($parameters)) {
-            $this->docs['paths'][$this->route->uri()][$this->method]['parameters'] = $parameters;
+            $docs['paths'][$route->uri()][$method]['parameters'] = $parameters;
         }
+
+        return $docs;
     }
 
     /**
-     *
+     * @param $docs
+     * @param $route
+     * @param $method
+     * @return array
      */
-    protected function addActionScopes(): void
+    protected function addActionScopes($docs, $route, $method): array
     {
-        foreach ($this->route->middleware() as $middleware) {
+        foreach ($route->middleware() as $middleware) {
             if ($this->isPassportScopeMiddleware($middleware)) {
-                $this->docs['paths'][$this->route->uri()][$this->method]['security'] = [
+                $docs['paths'][$route->uri()][$method]['security'] = [
                     self::SECURITY_DEFINITION_NAME => $middleware->parameters(),
                 ];
             }
         }
+
+        return $docs;
     }
 
     /**
@@ -315,12 +288,13 @@ class Generator
     }
 
     /**
+     * @param $method
      * @param $rules
      * @return Parameters\BodyParameterGenerator|Parameters\QueryParameterGenerator
      */
-    protected function getParameterGenerator($rules)
+    protected function getParameterGenerator($method, $rules)
     {
-        switch ($this->method) {
+        switch ($method) {
             case 'post':
             case 'put':
             case 'patch':
@@ -331,12 +305,13 @@ class Generator
     }
 
     /**
+     * @param $route
      * @return ReflectionMethod|null
      * @throws ReflectionException
      */
-    private function getActionClassInstance(): ?ReflectionMethod
+    private function getActionClassInstance($route): ?ReflectionMethod
     {
-        [$class, $method] = Str::parseCallback($this->route->action());
+        [$class, $method] = Str::parseCallback($route->action());
 
         if (!$class || !$method) {
             return null;
@@ -351,7 +326,7 @@ class Generator
      */
     private function parseActionDocBlock(string $docBlock): ?array
     {
-        if (empty($docBlock) || !$this->config['parseDocBlock']) {
+        if (empty($docBlock) || !$this->config['parse_doc_block']) {
             return [false, '', ''];
         }
 
@@ -367,20 +342,6 @@ class Generator
         } catch (\Exception $e) {
             return [false, '', ''];
         }
-    }
-
-    /**
-     * @return bool
-     */
-    private function isFilteredRoute(): bool
-    {
-        foreach ($this->routeFilters as $routeFilter) {
-            if (preg_match('/^' . preg_quote($routeFilter, '/') . '/', $this->route->uri())) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /**
@@ -454,25 +415,5 @@ class Generator
         $middlewareMap = app('router')->getMiddleware();
 
         return $middlewareMap[$middleware] ?? null;
-    }
-
-    private function isFilteredAction()
-    {
-        $action = explode('\\', $this->route->action());
-        [$controller, $method] = explode('@', end($action));
-
-        if (in_array($controller, $this->config['controller_filters'], true)) {
-            return true;
-        }
-
-        if (
-            isset($this->config['controller_method_filters'][$controller]) &&
-            !empty($methods = $this->config['controller_method_filters'][$controller]) &&
-            in_array($method, $methods, true)
-        ) {
-            return true;
-        }
-
-        return false;
     }
 }

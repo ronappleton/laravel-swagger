@@ -60,7 +60,7 @@ class GeneratorTest extends TestCase
         $docs = $this->getDocsWithNewConfig([
             'title' => 'My awesome site!',
             'description' => 'This is my awesome site, please enjoy it',
-            'appVersion' => '1.0.0',
+            'app_version' => '1.0.0',
             'host' => 'https://example.com',
             'basePath' => '/api',
             'schemes' => [
@@ -88,7 +88,7 @@ class GeneratorTest extends TestCase
     public function testSecurityDefinitionsAccessCodeFlow()
     {
         $docs = $this->getDocsWithNewConfig([
-            'authFlow' => 'accessCode',
+            'auth_flow' => 'accessCode',
         ]);
 
         $this->assertArrayHasKey('securityDefinitions', $docs);
@@ -106,7 +106,7 @@ class GeneratorTest extends TestCase
     public function testSecurityDefinitionsImplicitFlow()
     {
         $docs = $this->getDocsWithNewConfig([
-            'authFlow' => 'implicit',
+            'auth_flow' => 'implicit',
         ]);
 
         $securityDefinition = $docs['securityDefinitions']['OAuth2'];
@@ -120,7 +120,7 @@ class GeneratorTest extends TestCase
     public function testSecurityDefinitionsPasswordFlow()
     {
         $docs = $this->getDocsWithNewConfig([
-            'authFlow' => 'password',
+            'auth_flow' => 'password',
         ]);
 
         $securityDefinition = $docs['securityDefinitions']['OAuth2'];
@@ -134,7 +134,7 @@ class GeneratorTest extends TestCase
     public function testSecurityDefinitionsApplicationFlow()
     {
         $docs = $this->getDocsWithNewConfig([
-            'authFlow' => 'application',
+            'auth_flow' => 'application',
         ]);
 
         $securityDefinition = $docs['securityDefinitions']['OAuth2'];
@@ -148,7 +148,7 @@ class GeneratorTest extends TestCase
     public function testNoParseSecurity()
     {
         $docs = $this->getDocsWithNewConfig([
-            'parseSecurity' => false,
+            'parse_security' => false,
         ]);
 
         $this->assertArrayNotHasKey('securityDefinitions', $docs);
@@ -159,7 +159,7 @@ class GeneratorTest extends TestCase
         $this->expectException(LaravelSwaggerException::class);
 
         $this->getDocsWithNewConfig([
-            'authFlow' => 'invalidFlow',
+            'auth_flow' => 'invalidFlow',
         ]);
     }
 
@@ -231,14 +231,14 @@ EOD;
 
     public function testOverwriteIgnoreMethods()
     {
-        $docs = $this->getDocsWithNewConfig(['ignoredMethods' => []]);
+        $docs = $this->getDocsWithNewConfig(['ignored_request_methods' => []]);
 
         $this->assertArrayHasKey('head', $docs['paths']['/users']);
     }
 
     public function testParseDocBlockFalse()
     {
-        $docs = $this->getDocsWithNewConfig(['parseDocBlock' => false]);
+        $docs = $this->getDocsWithNewConfig(['parse_doc_block' => false]);
 
         $this->assertEquals('', $docs['paths']['/users']['post']['summary']);
         $this->assertEquals(false, $docs['paths']['/users']['post']['deprecated']);

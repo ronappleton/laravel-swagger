@@ -16,7 +16,7 @@ return [
 
     'description' => env('APP_DESCRIPTION', ''),
 
-    'appVersion' => env('APP_VERSION', '1.0.0'),
+    'app_version' => env('APP_VERSION', '1.0.0'),
 
     'host' => env('APP_URL', 'localhost'),
 
@@ -40,12 +40,24 @@ return [
     | Ignore request methods
     |--------------------------------------------------------------------------
     |
-    | Request methods in the following array will be ignored in the paths array
-    |
+    | Request methods in the 'global_ignored_request_methods' array will be ignored
+    | in the paths array
+    | 'controller_ignored_request_methods' is request methods to be ignored within a
+    | given controller
+    | 'controller_method_ignored_request_methods' is request methods to be ignored
+    | for certain methods in certain controllers.
     */
 
-    'ignoredMethods' => [
+    'global_ignored_request_methods' => [
         'head',
+    ],
+
+    'controller_ignored_request_methods' => [
+        ''
+    ],
+
+    'controller_method_ignored_request_methods' => [
+
     ],
 
     /*
@@ -61,7 +73,7 @@ return [
     |
     */
 
-    'parseDocBlock' => true,
+    'parse_doc_block' => true,
 
     /*
     |--------------------------------------------------------------------------
@@ -71,7 +83,7 @@ return [
     | If your application uses Laravel's Passport package with the recommended
     | settings, Laravel Swagger will attempt to parse your settings and
     | automatically generate the securityDefinitions along with the operation
-    | object's security parameter, you may turn off this behavior with parseSecurity.
+    | object's security parameter, you may turn off this behavior with parse_security.
     |
     | Possible values for flow: ["implicit", "password", "application", "accessCode"]
     | See https://medium.com/@darutk/diagrams-and-movies-of-all-the-oauth-2-0-flows-194f3c3ade85
@@ -79,9 +91,9 @@ return [
     |
     */
 
-    'parseSecurity' => true,
+    'parse_security' => true,
 
-    'authFlow' => 'accessCode',
+    'auth_flow' => 'accessCode',
 
     /*
     |--------------------------------------------------------------------------
@@ -101,11 +113,11 @@ return [
 
     'output' => 'file', // || file
 
-    'fileType' => 'json', // || yaml
+    'file_type' => 'json', // || yaml
 
     'path' => public_path('swagger'),
 
-    'fileName' => 'swagger',
+    'file_name' => 'swagger',
 
     'disk' => 'swagger',
     /*
