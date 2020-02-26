@@ -53,7 +53,6 @@ return [
     ],
 
     'controller_ignored_request_methods' => [
-        ''
     ],
 
     'controller_method_ignored_request_methods' => [

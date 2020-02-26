@@ -10,11 +10,13 @@ class Route
 {
     private $route;
     private $middleware;
+    private $controllerMethod;
 
     public function __construct(LaravelRoute $route)
     {
         $this->route = $route;
         $this->middleware = $this->formatMiddleware();
+        $this->controllerMethod = $this->getControllerAndMethod();
     }
 
     public function originalUri()
@@ -48,12 +50,35 @@ class Route
         return array_map('strtolower', $this->route->methods());
     }
 
+    public function getController()
+    {
+        return reset($this->controllerMethod);
+    }
+
+    public function getControllerMethod()
+    {
+        return end($this->controllerMethod);
+    }
+
     protected function formatMiddleware()
     {
         $middleware = $this->route->getAction()['middleware'] ?? [];
 
-        return array_map(function ($middleware) {
-            return new Middleware($middleware);
-        }, Arr::wrap($middleware));
+        return array_map(
+            function ($middleware) {
+                return new Middleware($middleware);
+            },
+            Arr::wrap($middleware)
+        );
+    }
+
+    /**
+     * @return array
+     */
+    private function getControllerAndMethod(): array
+    {
+        $parts = explode('\\', $this->action());
+        $subject = $parts[count($parts) - 1];
+        return explode('@', $subject);
     }
 }

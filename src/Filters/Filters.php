@@ -31,14 +31,17 @@ class Filters
         $this->routeFilters = (array)$routeFilters;
     }
 
-    public function unfilteredRequestMethods(): array
+    public function unfilteredRequestMethods($route): array
     {
+        $controller = $route->getController();
+        $controllerMethod = $route->getControllerMethod();
+
         $unfiltered = [];
-        foreach ($this->route->methods() as $requestMethod) {
+        foreach ($route->methods() as $requestMethod) {
             if (
                 !$this->isIgnoredRequestMethod($requestMethod) &&
-                !$this->isIgnoredControllerRequestMethod($requestMethod) &&
-                !$this->isIgnoredControllerMethodRequestMethod($requestMethod)
+                !$this->isIgnoredControllerRequestMethod($controller, $requestMethod) &&
+                !$this->isIgnoredControllerMethodRequestMethod($controller, $controllerMethod, $requestMethod)
             ) {
                 $unfiltered[] = $requestMethod;
             }
@@ -51,6 +54,7 @@ class Filters
     {
         $unfiltered = [];
         foreach ($this->getAppRoutes() as $route) {
+            $this->route = $route;
             if (
                 !$this->isFilteredRoute() &&
                 !$this->isFilteredController() &&
@@ -69,12 +73,12 @@ class Filters
     public function isFilteredRoute(): bool
     {
         foreach ($this->routeFilters as $routeFilter) {
-            if (preg_match('/^' . preg_quote($routeFilter, '/') . '/', $this->route->uri())) {
-                return false;
+            if (!preg_match('/^' . preg_quote($routeFilter, '/') . '/', $this->route->uri())) {
+                return true;
             }
         }
 
-        return true;
+        return false;
     }
 
     /**
@@ -87,13 +91,12 @@ class Filters
     }
 
     /**
+     * @param $controller
      * @param $requestMethod
      * @return bool
      */
-    public function isIgnoredControllerRequestMethod($requestMethod): bool
+    public function isIgnoredControllerRequestMethod($controller, $requestMethod): bool
     {
-        $controller = $this->route->getController();
-
         return
             array_key_exists($controller, $this->config['controller_ignored_request_methods']) &&
             in_array(
@@ -104,23 +107,22 @@ class Filters
     }
 
     /**
+     * @param $controller
+     * @param $controllerMethod
      * @param $requestMethod
      * @return bool
      */
-    public function isIgnoredControllerMethodRequestMethod($requestMethod): bool
+    public function isIgnoredControllerMethodRequestMethod($controller, $controllerMethod, $requestMethod): bool
     {
-        $controller = $this->route->getController();
-        $controllerMethod = $this->route->getControllerMethod();
-
         return
-            array_key_exists($controller, $this->config['controller_ignored_request_methods']) &&
+            array_key_exists($controller, $this->config['controller_method_ignored_request_methods']) &&
             array_key_exists(
                 $controllerMethod,
-                $this->config['controller_ignored_request_methods'][$controller]
+                $this->config['controller_method_ignored_request_methods'][$controller]
             ) &&
             in_array(
                 $requestMethod,
-                $this->config['controller_ignored_request_methods'][$controller][$controllerMethod],
+                $this->config['controller_method_ignored_request_methods'][$controller][$controllerMethod],
                 true
             );
     }
@@ -130,7 +132,7 @@ class Filters
      */
     public function isFilteredController(): bool
     {
-        return array_key_exists($this->route->getController(), $this->config['controller_filters']);
+        return in_array($this->route->getController(), $this->config['controller_filters'], true);
     }
 
     /**
@@ -141,9 +143,10 @@ class Filters
         $controller = $this->route->getController();
 
         return array_key_exists($controller, $this->config['controller_method_filters']) &&
-            array_key_exists(
+            in_array(
                 $this->route->getControllerMethod(),
-                $this->config['controller_method_filters'][$controller]
+                $this->config['controller_method_filters'][$controller],
+                true
             );
     }
 

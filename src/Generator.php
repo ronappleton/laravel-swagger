@@ -69,19 +69,20 @@ class Generator
     public function generate(): array
     {
         $docs = $this->getBaseInfo();
+        $unfilteredRoutes = $this->filters->unfilteredAppRoutes();
         $securityDefinitions = false;
 
-        if ($this->config['parse_security'] && $this->hasOauthRoutes()) {
+        if ($this->config['parse_security'] && $this->hasOauthRoutes($unfilteredRoutes)) {
             $docs['securityDefinitions'] = $this->generateSecurityDefinitions();
             $securityDefinitions = true;
         }
 
-        foreach ($this->filters->unfilteredAppRoutes() as $route) {
+        foreach ($unfilteredRoutes as $route) {
             if (!isset($docs['paths'][$route->uri()])) {
                 $docs['paths'][$route->uri()] = [];
             }
 
-            foreach ($this->filters->unfilteredRequestMethods() as $method) {
+            foreach ($this->filters->unfilteredRequestMethods($route) as $method) {
                 $docs = $this->generatePath($docs, $route, $method, $securityDefinitions);
             }
         }
@@ -95,6 +96,10 @@ class Generator
      */
     protected function getBaseInfo(): array
     {
+        if (Str::contains($this->config['host'], ['http://', 'https://'])) {
+            die('Your APP_URL in your .env file contains a scheme [ http/s:// ], this will prevent tests in swagger docs from working.' . PHP_EOL);
+        }
+
         $baseInfo = [
             'swagger' => '2.0',
             'info' => [
@@ -220,7 +225,7 @@ class Generator
      */
     protected function addActionParameters($docs, $route, $method): array
     {
-        $rules = $this->getFormRules() ?: [];
+        $rules = $this->getFormRules($route) ?: [];
 
         $parameters = (new Parameters\PathParameterGenerator($route->originalUri()))->getParameters();
 
@@ -257,12 +262,13 @@ class Generator
     }
 
     /**
+     * @param $route
      * @return array
      * @throws ReflectionException
      */
-    protected function getFormRules(): array
+    protected function getFormRules($route): array
     {
-        $action_instance = $this->getActionClassInstance();
+        $action_instance = $this->getActionClassInstance($route);
 
         if (!$action_instance) {
             return [];
@@ -346,10 +352,12 @@ class Generator
 
     /**
      * Assumes routes have been created using Passport::routes().
+     * @param $unfilteredRoutes
+     * @return bool
      */
-    private function hasOauthRoutes(): bool
+    private function hasOauthRoutes($unfilteredRoutes): bool
     {
-        foreach ($this->getAppRoutes() as $route) {
+        foreach ($unfilteredRoutes as $route) {
             $uri = $route->uri();
 
             if ($uri === self::OAUTH_TOKEN_PATH || $uri === self::OAUTH_AUTHORIZE_PATH) {
